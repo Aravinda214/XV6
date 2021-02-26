@@ -12,3 +12,6 @@ make qemu-nox
 
 ## To quit QEmu
 Press `crt-a` and then the letter `x`. 
+
+## To clear the screen
+Press `crt-l` to clear

@@ -192,7 +192,12 @@ void
 consoleintr(int (*getc)(void))
 {
   int c, doprocdump = 0;
-
+  //Crt-l clear screen code
+  int pos;
+  int i;
+  char a[18]="\033[2J\033[1;1H";//On printing this it resets ubuntu terminal's cursor position to top-left
+  char d;
+  //Crt-l ends
   acquire(&cons.lock);
   while((c = getc()) >= 0){
     switch(c){
@@ -212,6 +217,39 @@ consoleintr(int (*getc)(void))
         input.e--;
         consputc(BACKSPACE);
       }
+      break;
+    case C('L'):
+      //c('L') header in kbd.h
+      i=0;
+    //clearing ubuntu terminal
+    //resets the cursor of ubuntu terminal to top-left
+      while(i<14)
+      {
+      d=a[i];
+      uartputc(d);	//writing to ubuntu terminal	
+        i++;		
+      }
+      //clearing qemu
+      //screen resolution of terminal is 24*80.Print 24 newlines		
+      i=0;		
+      while(i<=24)
+      {
+        cgaputc('\n');//writing to qemu 
+        i=i+1;
+      }	
+      //shifting cursor position back(Qemu)
+      //outb header in x86.h	
+      pos=0;
+      outb(CRTPORT, 14);
+      outb(CRTPORT+1, pos>>8);
+      outb(CRTPORT, 15);
+      outb(CRTPORT+1, pos);
+    
+      cgaputc('$');
+      cgaputc(' ');
+      uartputc('$');
+      uartputc(' ');	
+      
       break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){

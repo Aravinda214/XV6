@@ -15,3 +15,6 @@ Press `crt-a` and then the letter `x`.
 
 ## To clear the screen
 Press `crt-l` to clear
+
+## Go to QEmu console 
+Press `crt-a` and then the letter `c`.

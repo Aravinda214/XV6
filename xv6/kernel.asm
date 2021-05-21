@@ -9718,8 +9718,8 @@ argstr(int n, char **pp)
 80104c4f:	90                   	nop
 
 80104c50 <syscall>:
-[SYS_close]   sys_close,
-};
+// [SYS_close]   "close",
+// };
 
 void
 syscall(void)

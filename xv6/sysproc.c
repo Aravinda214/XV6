@@ -39,7 +39,7 @@ sys_kill(void)
 int
 sys_getpid(void)
 {
-  return myproc()->pid;
+  return proc->pid;
 }
 
 int
@@ -50,7 +50,7 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
+  addr = proc->sz;
   if(growproc(n) < 0)
     return -1;
   return addr;
@@ -61,13 +61,13 @@ sys_sleep(void)
 {
   int n;
   uint ticks0;
-
+  
   if(argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(myproc()->killed){
+    if(proc->killed){
       release(&tickslock);
       return -1;
     }
@@ -83,9 +83,99 @@ int
 sys_uptime(void)
 {
   uint xticks;
-
+  
   acquire(&tickslock);
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// Halt (shutdown) the system by sending a special
+// signal to QEMU.
+// Based on: http://pdos.csail.mit.edu/6.828/2012/homework/xv6-syscall.html
+// and: https://github.com/t3rm1n4l/pintos/blob/master/devices/shutdown.c
+int
+sys_halt(void)
+{
+  char *p = "Shutdown";
+  for( ; *p; p++)
+    outw(0xB004, 0x2000);
+  return 0;
+}
+
+int sys_signal_register(void)
+{
+    uint signum;
+    sighandler_t handler;
+    int n;
+
+    if (argint(0, &n) < 0)
+      return -1;
+    signum = (uint) n;
+
+    if (argint(1, &n) < 0)
+      return -1;
+    handler = (sighandler_t) n;
+
+    return (int) signal_register_handler(signum, handler);
+}
+
+int sys_signal_restorer(void)
+{
+    int restorer_addr;
+    if (argint(0, &restorer_addr) < 0)
+      return -1;
+
+    proc->restorer_addr = (uint) restorer_addr;
+    
+    return 0;
+}
+
+int sys_mprotect(void)
+{
+  cprintf("In mprotect system call.\n");
+  int addr;
+  int len;
+  int prot;
+
+  if (argint(0, &addr) < 0)
+    return -1;
+  if (argint(1, &len) < 0)
+    return -1;
+  if (argint(2, &prot) < 0)
+    return -1;
+
+  if (prot > 0x003 || prot == 0x002) // invalid input for protection level
+    return -1;
+  cprintf("addr: %d\nlen: %d\nprot: %d\n", addr, len, prot);
+
+  return mprotect(addr, len, prot);
+}
+
+int
+sys_cowfork(void)
+{
+  return cowfork();
+}
+
+int
+sys_dsbrk(void)
+{
+  int addr;
+  int n;
+  
+  if (proc->actualsz == 0) {
+    // cprintf("original proc size: %d\n", proc->sz);
+    // cprintf("actual proc size: %d\n", proc->actualsz);
+    proc->actualsz = proc->sz;
+  }
+  
+  if(argint(0, &n) < 0)
+    return -1;
+  addr = proc->sz;
+  if(dgrowproc(n) < 0)
+    return -1;
+  
+  // cprintf("proc size: %d\n", proc->sz);
+  return addr;
 }

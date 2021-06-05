@@ -5,7 +5,7 @@
 #include "x86.h"
 
 char*
-strcpy(char *s, const char *t)
+strcpy(char *s, char *t)
 {
   char *os;
 
@@ -24,7 +24,7 @@ strcmp(const char *p, const char *q)
 }
 
 uint
-strlen(const char *s)
+strlen(char *s)
 {
   int n;
 
@@ -68,7 +68,7 @@ gets(char *buf, int max)
 }
 
 int
-stat(const char *n, struct stat *st)
+stat(char *n, struct stat *st)
 {
   int fd;
   int r;
@@ -93,14 +93,28 @@ atoi(const char *s)
 }
 
 void*
-memmove(void *vdst, const void *vsrc, int n)
+memmove(void *vdst, void *vsrc, int n)
 {
-  char *dst;
-  const char *src;
-
+  char *dst, *src;
+  
   dst = vdst;
   src = vsrc;
   while(n-- > 0)
     *dst++ = *src++;
   return vdst;
+}
+
+void restorer(void);
+__asm__ ("restorer:\n\t"
+            // "addl $0x4,%esp\n\t"
+            "addl $0xc,%esp\n\t"
+            "pop %edx\n\t"
+            "pop %ecx\n\t"
+            "pop %eax\n\t"
+            "ret\n\t");
+
+int signal(int signum, void(*handler)(int))
+{
+    signal_restorer(restorer);
+    return signal_register(signum, handler);
 }

@@ -2,7 +2,6 @@
 #include "defs.h"
 #include "param.h"
 #include "spinlock.h"
-#include "sleeplock.h"
 #include "fs.h"
 #include "buf.h"
 
@@ -22,7 +21,7 @@
 //
 // The log is a physical re-do log containing disk blocks.
 // The on-disk log format:
-//   header block, containing block #s for block A, B, C, ...
+//   header block, containing sector #s for block A, B, C, ...
 //   block A
 //   block B
 //   block C
@@ -30,10 +29,10 @@
 // Log appends are synchronous.
 
 // Contents of the header block, used for both the on-disk header block
-// and to keep track in memory of logged block# before commit.
+// and to keep track in memory of logged sector #s before commit.
 struct logheader {
-  int n;
-  int block[LOGSIZE];
+  int n;   
+  int sector[LOGSIZE];
 };
 
 struct log {
@@ -51,32 +50,32 @@ static void recover_from_log(void);
 static void commit();
 
 void
-initlog(int dev)
+initlog(void)
 {
   if (sizeof(struct logheader) >= BSIZE)
     panic("initlog: too big logheader");
 
   struct superblock sb;
   initlock(&log.lock, "log");
-  readsb(dev, &sb);
-  log.start = sb.logstart;
+  readsb(ROOTDEV, &sb);
+  log.start = sb.size - sb.nlog;
   log.size = sb.nlog;
-  log.dev = dev;
+  log.dev = ROOTDEV;
   recover_from_log();
 }
 
 // Copy committed blocks from log to their home location
-static void
+static void 
 install_trans(void)
 {
   int tail;
 
   for (tail = 0; tail < log.lh.n; tail++) {
     struct buf *lbuf = bread(log.dev, log.start+tail+1); // read log block
-    struct buf *dbuf = bread(log.dev, log.lh.block[tail]); // read dst
+    struct buf *dbuf = bread(log.dev, log.lh.sector[tail]); // read dst
     memmove(dbuf->data, lbuf->data, BSIZE);  // copy block to dst
     bwrite(dbuf);  // write dst to disk
-    brelse(lbuf);
+    brelse(lbuf); 
     brelse(dbuf);
   }
 }
@@ -90,7 +89,7 @@ read_head(void)
   int i;
   log.lh.n = lh->n;
   for (i = 0; i < log.lh.n; i++) {
-    log.lh.block[i] = lh->block[i];
+    log.lh.sector[i] = lh->sector[i];
   }
   brelse(buf);
 }
@@ -106,7 +105,7 @@ write_head(void)
   int i;
   hb->n = log.lh.n;
   for (i = 0; i < log.lh.n; i++) {
-    hb->block[i] = log.lh.block[i];
+    hb->sector[i] = log.lh.sector[i];
   }
   bwrite(buf);
   brelse(buf);
@@ -115,7 +114,7 @@ write_head(void)
 static void
 recover_from_log(void)
 {
-  read_head();
+  read_head();      
   install_trans(); // if committed, copy from log to disk
   log.lh.n = 0;
   write_head(); // clear the log
@@ -155,9 +154,7 @@ end_op(void)
     do_commit = 1;
     log.committing = 1;
   } else {
-    // begin_op() may be waiting for log space,
-    // and decrementing log.outstanding has decreased
-    // the amount of reserved space.
+    // begin_op() may be waiting for log space.
     wakeup(&log);
   }
   release(&log.lock);
@@ -174,17 +171,17 @@ end_op(void)
 }
 
 // Copy modified blocks from cache to log.
-static void
+static void 
 write_log(void)
 {
   int tail;
 
   for (tail = 0; tail < log.lh.n; tail++) {
     struct buf *to = bread(log.dev, log.start+tail+1); // log block
-    struct buf *from = bread(log.dev, log.lh.block[tail]); // cache block
+    struct buf *from = bread(log.dev, log.lh.sector[tail]); // cache block
     memmove(to->data, from->data, BSIZE);
     bwrite(to);  // write the log
-    brelse(from);
+    brelse(from); 
     brelse(to);
   }
 }
@@ -196,7 +193,7 @@ commit()
     write_log();     // Write modified blocks from cache to log
     write_head();    // Write header to disk -- the real commit
     install_trans(); // Now install writes to home locations
-    log.lh.n = 0;
+    log.lh.n = 0; 
     write_head();    // Erase the transaction from the log
   }
 }
@@ -220,15 +217,13 @@ log_write(struct buf *b)
   if (log.outstanding < 1)
     panic("log_write outside of trans");
 
-  acquire(&log.lock);
   for (i = 0; i < log.lh.n; i++) {
-    if (log.lh.block[i] == b->blockno)   // log absorbtion
+    if (log.lh.sector[i] == b->sector)   // log absorbtion
       break;
   }
-  log.lh.block[i] = b->blockno;
+  log.lh.sector[i] = b->sector;
   if (i == log.lh.n)
     log.lh.n++;
   b->flags |= B_DIRTY; // prevent eviction
-  release(&log.lock);
 }
 

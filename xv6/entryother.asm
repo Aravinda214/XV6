@@ -5,7 +5,7 @@ bootblockother.o:     file format elf32-i386
 Disassembly of section .text:
 
 00007000 <start>:
-# This code combines elements of bootasm.S and entry.S.
+#   - it uses the address at start-4, start-8, and start-12
 
 .code16           
 .globl start
@@ -13,7 +13,6 @@ start:
   cli            
     7000:	fa                   	cli    
 
-  # Zero data segment registers DS, ES, and SS.
   xorw    %ax,%ax
     7001:	31 c0                	xor    %eax,%eax
   movw    %ax,%ds
@@ -23,9 +22,6 @@ start:
   movw    %ax,%ss
     7007:	8e d0                	mov    %eax,%ss
 
-  # Switch from real to protected mode.  Use a bootstrap GDT that makes
-  # virtual addresses map directly to physical addresses so that the
-  # effective memory map doesn't change during the transition.
   lgdt    gdtdesc
     7009:	0f 01 16             	lgdtl  (%esi)
     700c:	84 70 0f             	test   %dh,0xf(%eax)
@@ -36,32 +32,28 @@ start:
   movl    %eax, %cr0
     7015:	0f 22 c0             	mov    %eax,%cr0
 
-  # Complete the transition to 32-bit protected mode by using a long jmp
-  # to reload %cs and %eip.  The segment descriptors are set up with no
-  # translation, so that the mapping is still the identity mapping.
+//PAGEBREAK!
   ljmpl    $(SEG_KCODE<<3), $(start32)
     7018:	66 ea 20 70 00 00    	ljmpw  $0x0,$0x7020
     701e:	08 00                	or     %al,(%eax)
 
 00007020 <start32>:
 
-//PAGEBREAK!
-.code32  # Tell assembler to generate 32-bit code now.
+.code32
 start32:
-  # Set up the protected-mode data segment registers
-  movw    $(SEG_KDATA<<3), %ax    # Our data segment selector
+  movw    $(SEG_KDATA<<3), %ax
     7020:	66 b8 10 00          	mov    $0x10,%ax
-  movw    %ax, %ds                # -> DS: Data Segment
+  movw    %ax, %ds
     7024:	8e d8                	mov    %eax,%ds
-  movw    %ax, %es                # -> ES: Extra Segment
+  movw    %ax, %es
     7026:	8e c0                	mov    %eax,%es
-  movw    %ax, %ss                # -> SS: Stack Segment
+  movw    %ax, %ss
     7028:	8e d0                	mov    %eax,%ss
-  movw    $0, %ax                 # Zero segments not ready for use
+  movw    $0, %ax
     702a:	66 b8 00 00          	mov    $0x0,%ax
-  movw    %ax, %fs                # -> FS
+  movw    %ax, %fs
     702e:	8e e0                	mov    %eax,%fs
-  movw    %ax, %gs                # -> GS
+  movw    %ax, %gs
     7030:	8e e8                	mov    %eax,%gs
 
   # Turn on page size extension for 4Mbyte pages
@@ -71,7 +63,7 @@ start32:
     7035:	83 c8 10             	or     $0x10,%eax
   movl    %eax, %cr4
     7038:	0f 22 e0             	mov    %eax,%cr4
-  # Use entrypgdir as our initial page table
+  # Use enterpgdir as our initial page table
   movl    (start-12), %eax
     703b:	a1 f4 6f 00 00       	mov    0x6ff4,%eax
   movl    %eax, %cr3

@@ -17,7 +17,6 @@ int login(char *u, char *p) {
   int i;
   int loggedIn = 0;
    6:	c7 45 f0 00 00 00 00 	movl   $0x0,-0x10(%ebp)
-  
   for(i = 0 ; i < REG_USERS ; i++) {
    d:	c7 45 f4 00 00 00 00 	movl   $0x0,-0xc(%ebp)
   14:	eb 47                	jmp    5d <login+0x5d>

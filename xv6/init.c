@@ -13,7 +13,6 @@ char *regpass[] = {"19BCE1050","19BCE1190"};
 int login(char *u, char *p) {
   int i;
   int loggedIn = 0;
-  
   for(i = 0 ; i < REG_USERS ; i++) {
     //printf(1, "%s %s %s %s %d %d\n", u, regusers[i], p, regpass[i], !strcmp(u, regusers[i]), !strcmp(p, regpass[i]));
     if(!strcmp(u, regusers[i]) && !strcmp(p, regpass[i])) {
